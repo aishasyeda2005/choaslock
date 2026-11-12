@@ -14,6 +14,7 @@ from PIL import Image
 
 from engine.chaos import key_from_password, logistic_sequence
 from engine.crypto import encrypt, decrypt
+from engine.analysis import calculate_entropy, calculate_correlation, plot_histograms, run_full_analysis
 
 
 class TestChaosEngine:
@@ -175,3 +176,68 @@ class TestCryptoEngine:
 
         assert dec_arr.shape == expected_rgb.shape
         assert np.array_equal(expected_rgb, dec_arr)
+
+
+class TestAnalysisModule:
+    """Test histogram, adjacent pixel correlation, and Shannon entropy analysis."""
+
+    def test_entropy_monochrome_image(self):
+        """A uniform solid image has zero entropy (all pixels have probability 1.0)."""
+        solid_arr = np.full((100, 100, 3), 128, dtype=np.uint8)
+        entropy = calculate_entropy(solid_arr)
+        assert entropy["overall"] == 0.0
+
+    def test_entropy_encrypted_near_eight(self):
+        """Encrypted image must have entropy close to 8.0 bits/pixel (> 7.95)."""
+        img = Image.open("samples/shapes.png")
+        encrypted = encrypt(img, "AnalysisTestPass123")
+
+        orig_entropy = calculate_entropy(img)
+        enc_entropy = calculate_entropy(encrypted)
+
+        # Natural shapes image has lower entropy
+        assert orig_entropy["overall"] < 7.5
+        # Encrypted image has near-maximum 8.0 bits/pixel entropy
+        assert enc_entropy["overall"] >= 7.95, f"Entropy too low: {enc_entropy['overall']}"
+
+    def test_correlation_original_high_encrypted_near_zero(self):
+        """Original image correlation should be high; encrypted should be near zero."""
+        img = Image.open("samples/shapes.png")
+        encrypted = encrypt(img, "CorrelationKey987!")
+
+        orig_corr = calculate_correlation(img)
+        enc_corr = calculate_correlation(encrypted)
+
+        # Original image has high spatial correlation
+        assert orig_corr["overall"] >= 0.80, f"Expected high original correlation: {orig_corr['overall']}"
+        # Encrypted image correlation should be destroyed (|r| < 0.05)
+        assert abs(enc_corr["overall"]) <= 0.05, f"Encrypted correlation not near zero: {enc_corr['overall']}"
+
+    def test_plot_histograms_generates_valid_png(self):
+        """Histogram plotting should generate valid PNG image bytes."""
+        img = Image.open("samples/shapes.png")
+        encrypted = encrypt(img, "PlotTestKey!")
+
+        png_bytes = plot_histograms(img, encrypted)
+        assert png_bytes.startswith(b"\x89PNG\r\n\x1a\n"), "Did not produce a valid PNG header"
+        assert len(png_bytes) > 1000
+
+    def test_run_full_analysis_verdict(self):
+        """Full analysis pipeline returns structured metrics and a PASS verdict for encrypted image."""
+        img = Image.open("samples/shapes.png")
+        encrypted = encrypt(img, "FullAnalysisKey!")
+
+        result = run_full_analysis(img, encrypted)
+
+        # Check required schema
+        assert "original" in result
+        assert "encrypted" in result
+        assert "verdict" in result
+        assert "histogram_bytes" in result
+
+        verdict = result["verdict"]
+        assert verdict["entropy_pass"] is True
+        assert verdict["correlation_pass"] is True
+        assert verdict["passed"] is True
+
+
