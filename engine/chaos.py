@@ -86,3 +86,4 @@ def logistic_sequence(x0: float, r: float, n: int) -> np.ndarray:
         seq[i] = x
 
     return seq
+
