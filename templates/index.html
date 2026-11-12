@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChaosLock | Chaotic Image Encryption & Security Analysis</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-container">
+      <div class="logo-area">
+        <div class="logo-icon">&#x1F512;</div>
+        <div>
+          <h1>ChaosLock</h1>
+          <p class="subtitle">Logistic Map Chaotic Permutation & Diffusion Cipher</p>
+        </div>
+      </div>
+      <div class="badge">Information Security Course Project</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Tab Navigation -->
+    <nav class="tabs-nav" role="tablist">
+      <button class="tab-btn active" data-tab="encrypt-tab" role="tab" aria-selected="true">
+        &#x1F510; Encrypt Image
+      </button>
+      <button class="tab-btn" data-tab="decrypt-tab" role="tab" aria-selected="false">
+        &#x1F513; Decrypt Image
+      </button>
+      <button class="tab-btn" data-tab="analysis-tab" role="tab" aria-selected="false">
+        &#x1F4CA; Security Analysis
+      </button>
+    </nav>
+
+    <!-- Notification / Alert Banner -->
+    <div id="alert-banner" class="alert hidden" role="alert"></div>
+
+    <!-- ==================== TAB 1: ENCRYPT ==================== -->
+    <section id="encrypt-tab" class="tab-content active" role="tabpanel">
+      <div class="panel-card">
+        <h2>Encrypt Image</h2>
+        <p class="panel-desc">
+          Upload a PNG or JPG image. Pixel coordinates are permuted using chaotic rank ordering,
+          and pixel values are diffused using uniform Logistic Map bytes via XOR.
+        </p>
+
+        <form id="encrypt-form" class="crypto-form">
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="enc-file">Select Image (PNG or JPG, max 5 MB):</label>
+              <input type="file" id="enc-file" accept="image/png, image/jpeg" required>
+            </div>
+
+            <div class="input-group">
+              <label for="enc-password">Encryption Password:</label>
+              <div class="password-wrapper">
+                <input type="password" id="enc-password" placeholder="Enter a secure password..." required autocomplete="off">
+                <button type="button" class="toggle-pwd-btn" data-target="enc-password" title="Show/Hide Password">&#x1F441;</button>
+              </div>
+              <div class="pwd-meter-container">
+                <div class="pwd-meter-bar" id="enc-pwd-bar"></div>
+              </div>
+              <span class="pwd-hint" id="enc-pwd-hint">Password strength: Empty</span>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="enc-submit-btn" class="primary-btn">
+              <span class="btn-text">&#x1F512; Encrypt Image</span>
+              <span class="btn-spinner hidden">&#x21BB; Processing...</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Previews -->
+        <div class="previews-container">
+          <div class="preview-card">
+            <h3>Original Preview</h3>
+            <div class="img-frame" id="enc-orig-frame">
+              <span class="placeholder-text">No image selected</span>
+              <img id="enc-orig-img" class="hidden" alt="Original preview">
+            </div>
+            <div class="img-meta" id="enc-orig-meta"></div>
+          </div>
+
+          <div class="preview-card">
+            <h3>Encrypted Result (PNG)</h3>
+            <div class="img-frame" id="enc-res-frame">
+              <span class="placeholder-text">Awaiting encryption...</span>
+              <img id="enc-res-img" class="hidden" alt="Encrypted preview">
+            </div>
+            <div class="img-meta" id="enc-res-meta"></div>
+            <div class="preview-actions">
+              <a id="enc-download-btn" class="download-btn hidden" download="encrypted.png">
+                &#x2B07; Download Encrypted PNG
+              </a>
+              <button type="button" id="enc-send-decrypt-btn" class="action-link-btn hidden">
+                &#x27A1; Send to Decrypt Tab
+              </button>
+              <button type="button" id="enc-send-analysis-btn" class="action-link-btn hidden">
+                &#x1F4CA; Send to Analysis Tab
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DECRYPT ==================== -->
+    <section id="decrypt-tab" class="tab-content" role="tabpanel">
+      <div class="panel-card">
+        <h2>Decrypt Image</h2>
+        <p class="panel-desc">
+          Upload an encrypted PNG file and supply the decryption password.
+          <strong>Demo Note:</strong> Entering a wrong password will generate uncorrelated noise rather than crashing.
+        </p>
+
+        <form id="decrypt-form" class="crypto-form">
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="dec-file">Select Encrypted PNG:</label>
+              <input type="file" id="dec-file" accept="image/png" required>
+            </div>
+
+            <div class="input-group">
+              <label for="dec-password">Decryption Password:</label>
+              <div class="password-wrapper">
+                <input type="password" id="dec-password" placeholder="Enter password used during encryption..." required autocomplete="off">
+                <button type="button" class="toggle-pwd-btn" data-target="dec-password" title="Show/Hide Password">&#x1F441;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="dec-submit-btn" class="primary-btn">
+              <span class="btn-text">&#x1F513; Decrypt Image</span>
+              <span class="btn-spinner hidden">&#x21BB; Processing...</span>
+            </button>
+            <button type="button" id="dec-wrong-pwd-btn" class="secondary-btn" title="Simulates a wrong password attack">
+              &#x26A0; Try Wrong Password Demo
+            </button>
+          </div>
+        </form>
+
+        <!-- Decrypt Previews -->
+        <div class="previews-container">
+          <div class="preview-card">
+            <h3>Encrypted Input</h3>
+            <div class="img-frame" id="dec-in-frame">
+              <span class="placeholder-text">No encrypted image selected</span>
+              <img id="dec-in-img" class="hidden" alt="Encrypted input preview">
+            </div>
+          </div>
+
+          <div class="preview-card">
+            <h3>Decrypted Output</h3>
+            <div class="img-frame" id="dec-out-frame">
+              <span class="placeholder-text">Awaiting decryption...</span>
+              <img id="dec-out-img" class="hidden" alt="Decrypted output preview">
+            </div>
+            <div class="preview-actions">
+              <a id="dec-download-btn" class="download-btn hidden" download="decrypted.png">
+                &#x2B07; Download Decrypted PNG
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: ANALYSIS ==================== -->
+    <section id="analysis-tab" class="tab-content" role="tabpanel">
+      <div class="panel-card">
+        <h2>Cryptographic Security Analysis</h2>
+        <p class="panel-desc">
+          Compare the statistical properties of the plain image vs the encrypted image.
+          Evaluates <strong>Shannon Entropy</strong>, <strong>Adjacent Pixel Correlation</strong>, and <strong>Histogram Uniformity</strong>.
+        </p>
+
+        <form id="analysis-form" class="crypto-form">
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="ana-orig-file">Original Image:</label>
+              <input type="file" id="ana-orig-file" accept="image/png, image/jpeg" required>
+            </div>
+
+            <div class="input-group">
+              <label for="ana-enc-file">Encrypted Image (PNG):</label>
+              <input type="file" id="ana-enc-file" accept="image/png" required>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="ana-submit-btn" class="primary-btn">
+              <span class="btn-text">&#x1F4CA; Run Security Verification</span>
+              <span class="btn-spinner hidden">&#x21BB; Computing Metrics...</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Verdict Banner -->
+        <div id="verdict-banner" class="verdict-card hidden">
+          <div class="verdict-status" id="verdict-status">PASS</div>
+          <div class="verdict-details" id="verdict-summary">
+            All cryptographic criteria satisfied.
+          </div>
+        </div>
+
+        <!-- Metrics Cards -->
+        <div class="metrics-grid hidden" id="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-header">
+              <h3>Shannon Entropy</h3>
+              <span class="metric-tag">Ideal: ~8.0000</span>
+            </div>
+            <p class="metric-desc">Measures information randomness and absence of pixel patterns.</p>
+            <div class="metric-comparison">
+              <div>
+                <span class="metric-lbl">Original</span>
+                <span class="metric-val" id="val-orig-entropy">--</span>
+              </div>
+              <div class="metric-arrow">&#x27A1;</div>
+              <div>
+                <span class="metric-lbl">Encrypted</span>
+                <span class="metric-val highlight" id="val-enc-entropy">--</span>
+              </div>
+            </div>
+            <div class="metric-sub" id="sub-entropy"></div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-header">
+              <h3>Horizontal Correlation</h3>
+              <span class="metric-tag">Ideal: ~0.0000</span>
+            </div>
+            <p class="metric-desc">Pearson correlation between horizontally adjacent pixel pairs.</p>
+            <div class="metric-comparison">
+              <div>
+                <span class="metric-lbl">Original</span>
+                <span class="metric-val" id="val-orig-corr">--</span>
+              </div>
+              <div class="metric-arrow">&#x27A1;</div>
+              <div>
+                <span class="metric-lbl">Encrypted</span>
+                <span class="metric-val highlight" id="val-enc-corr">--</span>
+              </div>
+            </div>
+            <div class="metric-sub" id="sub-corr"></div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-header">
+              <h3>Key Sensitivity (Avalanche)</h3>
+              <span class="metric-tag">SHA-256 + Chaos</span>
+            </div>
+            <p class="metric-desc">Sensitivity to a 1-character password change.</p>
+            <div class="metric-check-item">
+              <span class="check-icon">&#x2705;</span>
+              <span>1-bit hash change alters initial condition x0 and parameter r</span>
+            </div>
+            <div class="metric-check-item">
+              <span class="check-icon">&#x2705;</span>
+              <span>Wrong key decrypts to uncorrelated high-entropy noise</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Side-by-side Histogram Image -->
+        <div class="histogram-section hidden" id="histogram-section">
+          <h3>Pixel Frequency Histograms (Original vs Encrypted)</h3>
+          <p class="panel-desc">
+            A flat, uniform distribution confirms that diffusion successfully eliminated statistical frequency patterns.
+          </p>
+          <div class="histogram-frame">
+            <img id="histogram-img" alt="Histogram Comparison">
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>ChaosLock &copy; 2026 | Built for University Information Security Course</p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

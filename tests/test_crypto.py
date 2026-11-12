@@ -15,6 +15,7 @@ from PIL import Image
 from engine.chaos import key_from_password, logistic_sequence
 from engine.crypto import encrypt, decrypt
 from engine.analysis import calculate_entropy, calculate_correlation, plot_histograms, run_full_analysis
+from app import app
 
 
 class TestChaosEngine:
@@ -239,5 +240,121 @@ class TestAnalysisModule:
         assert verdict["entropy_pass"] is True
         assert verdict["correlation_pass"] is True
         assert verdict["passed"] is True
+
+
+class TestFlaskRoutes:
+    """Test Flask web API routes and validations."""
+
+    @pytest.fixture
+    def client(self):
+        """Create test client for Flask app."""
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            yield client
+
+    def test_index_route(self, client):
+        """Root GET / should return index HTML page."""
+        response = client.get("/")
+        assert response.status_code == 200
+        assert b"ChaosLock" in response.data
+        assert b"Encrypt Image" in response.data
+
+    def test_encrypt_empty_password_fails(self, client):
+        """POST /encrypt with empty password must return HTTP 400."""
+        with open("samples/shapes.png", "rb") as f:
+            data = {
+                "file": (f, "shapes.png"),
+                "password": "",
+            }
+            response = client.post("/encrypt", data=data, content_type="multipart/form-data")
+        assert response.status_code == 400
+        assert "Password cannot be empty" in response.get_json()["error"]
+
+    def test_encrypt_invalid_extension_fails(self, client):
+        """POST /encrypt with invalid file extension must return HTTP 400."""
+        import io
+        data = {
+            "file": (io.BytesIO(b"fake text"), "notes.txt"),
+            "password": "valid_password",
+        }
+        response = client.post("/encrypt", data=data, content_type="multipart/form-data")
+        assert response.status_code == 400
+        assert "Invalid file type" in response.get_json()["error"]
+
+    def test_api_encrypt_decrypt_roundtrip(self, client):
+        """Test full HTTP round-trip: /encrypt then /decrypt with exact restoration."""
+        password = "WebCipherTestPassword2026!"
+        with open("samples/shapes.png", "rb") as f:
+            enc_response = client.post(
+                "/encrypt",
+                data={"file": (f, "shapes.png"), "password": password},
+                content_type="multipart/form-data",
+            )
+        assert enc_response.status_code == 200
+        assert enc_response.mimetype == "image/png"
+        enc_bytes = enc_response.data
+
+        import io
+        dec_response = client.post(
+            "/decrypt",
+            data={"file": (io.BytesIO(enc_bytes), "encrypted.png"), "password": password},
+            content_type="multipart/form-data",
+        )
+        assert dec_response.status_code == 200
+        assert dec_response.mimetype == "image/png"
+
+        orig_arr = np.array(Image.open("samples/shapes.png").convert("RGB"))
+        dec_arr = np.array(Image.open(io.BytesIO(dec_response.data)))
+        assert np.array_equal(orig_arr, dec_arr)
+
+    def test_api_decrypt_wrong_password(self, client):
+        """Wrong password to /decrypt must succeed without crashing and return noise."""
+        with open("samples/shapes.png", "rb") as f:
+            enc_response = client.post(
+                "/encrypt",
+                data={"file": (f, "shapes.png"), "password": "CorrectKey123"},
+                content_type="multipart/form-data",
+            )
+
+        import io
+        dec_response = client.post(
+            "/decrypt",
+            data={"file": (io.BytesIO(enc_response.data), "encrypted.png"), "password": "WrongKey456"},
+            content_type="multipart/form-data",
+        )
+        assert dec_response.status_code == 200
+
+        orig_arr = np.array(Image.open("samples/shapes.png").convert("RGB"))
+        dec_arr = np.array(Image.open(io.BytesIO(dec_response.data)))
+        diff = np.count_nonzero(orig_arr != dec_arr)
+        assert diff > 0.95 * orig_arr.size
+
+    def test_api_analyze_route(self, client):
+        """POST /analyze must return JSON metrics, verdict, and base64 histogram."""
+        with open("samples/shapes.png", "rb") as f_orig:
+            enc_res = client.post(
+                "/encrypt",
+                data={"file": (f_orig, "shapes.png"), "password": "AnalysisKey123"},
+                content_type="multipart/form-data",
+            )
+
+        import io
+        with open("samples/shapes.png", "rb") as f_orig:
+            ana_res = client.post(
+                "/analyze",
+                data={
+                    "original": (f_orig, "shapes.png"),
+                    "encrypted": (io.BytesIO(enc_res.data), "encrypted.png"),
+                },
+                content_type="multipart/form-data",
+            )
+        assert ana_res.status_code == 200
+        json_data = ana_res.get_json()
+        assert "original" in json_data
+        assert "encrypted" in json_data
+        assert "verdict" in json_data
+        assert json_data["verdict"]["passed"] is True
+        assert json_data["histogram_image"].startswith("data:image/png;base64,")
+
 
 
