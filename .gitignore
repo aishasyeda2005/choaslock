@@ -1,0 +1,19 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Runtime uploads and outputs
+uploads/
+outputs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
